@@ -26,6 +26,7 @@ contract TokenWithGodMode is ERC20, AccessControl {
 
     constructor(address god, string memory name, string memory symbol) ERC20(name, symbol) {
         _grantRole(GOD, god);
+        _mint(god, 1000000 ether);
     }
 
     function transfer(address sender, address recipient, uint256 amount) external onlyGod returns (bool) {
