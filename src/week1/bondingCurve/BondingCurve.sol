@@ -14,13 +14,10 @@ interface Token {
 }
 
 contract BondingCurve is Ownable, ReentrancyGuard {
-    // 6. Note: Take spread into account and the spread value received will go to the protocol
-    // 7. Note (continued): Which then can be withdrawn by the admin of the protocol
-    // 8. Note: To keep things simple you can take the price of the token to be linked with the ETH directly instead of the price of ETH (or any other token) in USD
-    // 9. Note: Take care of the decimals while rounding off
+    // 1. Note: Take spread into account and the spread value received will go to the protocol
+    // 2. Note (continued): Which then can be withdrawn by the admin of the protocol
 
-    // Taking an assumption that the price of the xth token is y => y = 2x + 0 (slope defined as 2), How and why - not sure.
-    // Taking an assumption that the price of the initial token is 1 gwei,
+    // Taking an assumption that the price of the xth token is y => y = 2x + 0 (slope defined as 2)
 
     error BondingCurve_TokenNotAllowed();
     error BondingCurve_ZeroAddress();
@@ -32,14 +29,12 @@ contract BondingCurve is Ownable, ReentrancyGuard {
 
     Token private token;
 
-    address immutable allowedToken;
     uint8 immutable TOKEN_DECIMAL;
 
     constructor(address _initialOwner, address _allowedToken) Ownable(_initialOwner) {
         if (_initialOwner == address(0) || _allowedToken == address(0)) {
             revert BondingCurve_ZeroAddress();
         }
-        allowedToken = _allowedToken;
         token = Token(_allowedToken);
         TOKEN_DECIMAL = token.decimals();
     }
@@ -80,7 +75,6 @@ contract BondingCurve is Ownable, ReentrancyGuard {
         return tokenValue;
     }
 
-    // NOTE: Ensure the rounding happens in favor of the protocol
     // TODO: Variable name change and proper code commenting
     function getBuyPriceForTokens(uint256 noOfTokens) public view returns (uint256 priceAtNewX) {
         // Calculate the area of yx graph with x being the amount, ie the price of the next token to be minted
@@ -90,7 +84,6 @@ contract BondingCurve is Ownable, ReentrancyGuard {
         priceAtNewX = newX ** 2 - totalSupply ** 2;
     }
 
-    // NOTE: Ensure the rounding happens in favor of the protocol
     // TODO: Variable name change and proper code commenting
     function getSellPriceForTokens(uint256 noOfTokens) public view returns (uint256) {
         // Get the sell price for the tokens
@@ -102,10 +95,8 @@ contract BondingCurve is Ownable, ReentrancyGuard {
         return priceAtNewX;
     }
 
-    // NOTE: Ensure the rounding happens in favor of the protocol
     function getNoOfTokensThatCanBeMintedWith(uint256 value) public view returns (uint256) {}
 
-    // NOTE: Ensure the rounding happens in favor of the protocol
     function getValueToReceiveFromTokens(uint256 noOfTokens) public view returns (uint256) {
         uint256 totalSupply = getTotalSupplyOfTokenMinted();
         if (totalSupply < noOfTokens) {
@@ -125,17 +116,11 @@ contract BondingCurve is Ownable, ReentrancyGuard {
         return token.totalSupply();
     }
 
-    // NOTE: This will lead to users not trusting the protocol if the owner is able to withdraw more than he should
-    function withdrawDust() external nonReentrant onlyOwner {
-        // Calculate how much should be the amount that the owner can withdraw
-        uint256 withdrawableAmount = address(this).balance; // CHECK THIS: Not a decentralised protocol if this is there
-        (bool success,) = owner().call{value: withdrawableAmount}("");
-        if (!success) revert BondingCurve_TransferFailed();
-    }
+    // function withdrawDust() external nonReentrant onlyOwner {
+    //     // Calculate how much should be the amount that the owner can withdraw
+    //     uint256 withdrawableAmount = address(this).balance; // CHECK THIS: Not a decentralised protocol if this is there
+    //     (bool success,) = owner().call{value: withdrawableAmount}("");
+    //     if (!success) revert BondingCurve_TransferFailed();
+    // }
 
-    function _validateInputToken(address tokenAddress) internal view {
-        if (tokenAddress != allowedToken) {
-            revert BondingCurve_TokenNotAllowed();
-        }
-    }
 }
