@@ -4,10 +4,12 @@ pragma solidity ^0.8.13;
 import {Test, console} from "forge-std/Test.sol";
 import {TokenWithSanctions} from "../src/week1/TokenWithSanctions.sol";
 
-contract TokenWithGodModeTest is Test {
+contract TokenWithSanctionsTest is Test {
     TokenWithSanctions public tokenWithSanctions;
 
     address public ADMIN = makeAddr("admin");
+    address public USER = makeAddr("user");
+    address public ACCOUNT = makeAddr("account");
     string public constant NAME = "TokenWithSanctions";
     string public constant SYMBOL = "TWS";
 
@@ -15,9 +17,40 @@ contract TokenWithGodModeTest is Test {
         tokenWithSanctions = new TokenWithSanctions(ADMIN, NAME, SYMBOL);
     }
 
-    // test if admin can set and remove the blacklist
-    // test if no other person can set the blacklist
-    // test if blacklisted account can't transfer tokens
+    // Test if admin can set and remove the blacklist
+    function testOnlyAdminCanBlacklist() public {
+        vm.startPrank(ADMIN);
+        tokenWithSanctions.setBlacklist(ACCOUNT, true);
+        assert(tokenWithSanctions.isBlacklistedAccount(ACCOUNT));
+        tokenWithSanctions.setBlacklist(ACCOUNT, false);
+        assert(!tokenWithSanctions.isBlacklistedAccount(ACCOUNT));
+        vm.stopPrank();
+    }
+
+    // Test if no other user can set the blacklist except admin
+    function testRevertsIfUserSetsBlacklist() public {
+        vm.startPrank(USER);
+        vm.expectRevert(TokenWithSanctions.TokenWithSanctions__RestrictedToAdmins.selector);
+        tokenWithSanctions.setBlacklist(ACCOUNT, true);
+        vm.stopPrank();
+    }
+
+    // Test if blacklisted account can't transfer/receive tokens
+    function testIfBlacklistedAccountCantTransferTokens() public {
+        vm.startPrank(ADMIN);
+        tokenWithSanctions.transfer(ACCOUNT, 10 ether); // Transfer of 10 tokens
+        tokenWithSanctions.setBlacklist(ACCOUNT, true);
+        vm.expectRevert(TokenWithSanctions.TokenWithSanctions__RecipientIsBlacklisted.selector);
+        tokenWithSanctions.transfer(ACCOUNT, 1 ether);
+        vm.stopPrank();
+
+        vm.startPrank(ACCOUNT);
+        address recipient = makeAddr("recipient");
+        vm.expectRevert(TokenWithSanctions.TokenWithSanctions__SenderIsBlacklisted.selector);
+        tokenWithSanctions.transfer(recipient, 1 ether);
+        vm.stopPrank();
+    }
+    
     // test erc20 functionalities?
 
     // Generate foundry test cases for erc20 functionalities

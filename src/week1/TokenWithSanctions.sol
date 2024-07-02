@@ -12,6 +12,8 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
  */
 contract TokenWithSanctions is ERC20, AccessControl {
     error TokenWithSanctions__RestrictedToAdmins();
+    error TokenWithSanctions__RecipientIsBlacklisted();
+    error TokenWithSanctions__SenderIsBlacklisted();
 
     // Disable transfer option for blacklist addresses; the control of the which should be with the admin
     mapping(address => bool) private isBlacklisted;
@@ -28,7 +30,8 @@ contract TokenWithSanctions is ERC20, AccessControl {
     }
 
     constructor(address admin, string memory name, string memory symbol) ERC20(name, symbol) {
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(ADMIN, admin);
+        _mint(admin, 1000000 ether); // As token decimal is standardised to 18
     }
 
     function setBlacklist(address account, bool _isBlacklisted) external onlyAdmin {
@@ -40,8 +43,12 @@ contract TokenWithSanctions is ERC20, AccessControl {
     }
 
     function transfer(address recipient, uint256 amount) public override returns (bool) {
-        require(!isBlacklisted[_msgSender()], "You are blacklisted");
-        require(!isBlacklisted[recipient], "Recipient is blacklisted");
+        if (isBlacklisted[_msgSender()]) {
+            revert TokenWithSanctions__SenderIsBlacklisted();
+        }
+        if (isBlacklisted[recipient]) {
+            revert TokenWithSanctions__RecipientIsBlacklisted();
+        }
         return super.transfer(recipient, amount);
     }
 }

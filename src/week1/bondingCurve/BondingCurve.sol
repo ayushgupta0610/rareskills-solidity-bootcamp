@@ -69,7 +69,7 @@ contract BondingCurve is Ownable, ReentrancyGuard {
         if (token.balanceOf(_msgSender()) < noOfTokens) {
             revert BondingCurve_InsufficientBalance();
         }
-        token.burn(_msgSender(), noOfTokens); // This saves one transferFrom operation
+        token.burn(_msgSender(), noOfTokens); // This saves one transferFrom operation | or would two separate transactions be better?
         // Check if the protocol has enough liquidity / ether to pay back | Ideally it should to be a solvent protocol
         uint256 tokenValue = getValueToReceiveFromTokens(noOfTokens);
         if (tokenValue > address(this).balance) {
