@@ -14,6 +14,7 @@ contract Token is ERC20Burnable, Ownable {
     error Token_ZeroAddress();
     error Token_ZeroAmount();
 
+    // Ownership transfer would be required to BondingCurve contract
     constructor(address initialOwner) ERC20("Token", "TKN") Ownable(initialOwner) {}
 
     function mint(address to, uint256 amount) external onlyOwner returns (bool) {

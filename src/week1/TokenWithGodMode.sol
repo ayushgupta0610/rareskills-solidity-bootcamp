@@ -7,28 +7,28 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 /**
  *     @title Token with god mode
  *     @author Ayush Gupta
- *     @dev This contract is a special ERC20 token that allows a special address (admin/god) to transfer tokens between addresses at will
- *     @notice Only the admin/god can transfer tokens between addresses
+ *     @dev This contract is a special ERC20 token that allows a special address (god) to transfer tokens between addresses at will
+ *     @notice Only the god address can transfer tokens between addresses
  */
 contract TokenWithGodMode is ERC20, AccessControl {
-    error TokenWithGodMode__RestrictedToAdmin();
+    error TokenWithGodMode__RestrictedToGod();
 
-    // Define the role for the admin/god
-    bytes32 public constant ADMIN = keccak256("ADMIN");
+    // Define the role for the god
+    bytes32 public constant GOD = keccak256("GOD");
 
-    modifier onlyAdmin() {
-        if (hasRole(ADMIN, _msgSender())) {
+    modifier onlyGod() {
+        if (hasRole(GOD, _msgSender())) {
             _;
         } else {
-            revert TokenWithGodMode__RestrictedToAdmin();
+            revert TokenWithGodMode__RestrictedToGod();
         }
     }
 
-    constructor(address admin, string memory name, string memory symbol) ERC20(name, symbol) {
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+    constructor(address god, string memory name, string memory symbol) ERC20(name, symbol) {
+        _grantRole(GOD, god);
     }
 
-    function transfer(address sender, address recipient, uint256 amount) external onlyAdmin returns (bool) {
+    function transfer(address sender, address recipient, uint256 amount) external onlyGod returns (bool) {
         _transfer(sender, recipient, amount);
         return true;
     }
