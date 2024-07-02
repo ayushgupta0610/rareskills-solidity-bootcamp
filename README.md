@@ -1,66 +1,14 @@
-## Foundry
+## Advanced Solidity Bootcamp
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+**Week 1**
 
-Foundry consists of:
+Reading Material:
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
 
-## Documentation
+Practise Exercises:
 
-https://book.getfoundry.sh/
+-   **TokenWithSanctions.sol**: a fungible token that allows an admin to ban specified addresses from sending and receiving tokens
+-   **TokenWithGodMode.sol**: A special address is able to transfer tokens between addresses at will.
+-   **BondingCurve.sol**: Token sale and buyback with bonding curve. The more tokens a user buys, the more expensive the token becomes. (linear bonding curve)
+-   **UntrustedEscrow.sol**: A contract where a buyer can put an arbitrary ERC20 token into a contract and a seller can withdraw it 3 days later
 
-## Usage
-
-### Build
-
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
