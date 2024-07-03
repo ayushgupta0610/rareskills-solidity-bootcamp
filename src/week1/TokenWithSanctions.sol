@@ -22,6 +22,8 @@ contract TokenWithSanctions is ERC20, AccessControl {
     // Define the role for the admin
     bytes32 public constant ADMIN = keccak256("ADMIN");
 
+    event Blacklist(address account, bool isBlacklisted);
+
     modifier onlyAdmin() {
         if (hasRole(ADMIN, _msgSender())) {
             _;
@@ -46,6 +48,7 @@ contract TokenWithSanctions is ERC20, AccessControl {
     // }
 
     function setBlacklist(address account, uint256 _isBlacklisted) external onlyAdmin {
+        emit Blacklist(account, _isBlacklisted>0);
         isBlacklisted[account] = _isBlacklisted;
     }
 
