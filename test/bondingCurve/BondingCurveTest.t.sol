@@ -26,13 +26,30 @@ contract BondingCurveTest is Test {
         vm.deal(USER_2, 100 ether);
     }
 
-    // test getBuyPriceForTokens function
     function testBuyTokens() external payable {
         vm.startPrank(USER_1);
-        bondingCurve.buyTokens{value: 2 ether}(2);
+        bondingCurve.buyTokens{value: 4 ether}(2 ether);
         vm.stopPrank();
-        assertEq(token.balanceOf(USER_1), 2);
+        assertEq(token.balanceOf(USER_1), 2 ether);
     }
 
-    // test getTokenPriceInWei
+    function testGetValueToReceiveFromTokens() external {
+        vm.startPrank(USER_1);
+        bondingCurve.buyTokens{value: 4 ether}(2 ether);
+        vm.stopPrank();
+        assertEq(bondingCurve.getValueToReceiveFromTokens(1 ether), 3 ether);
+    }
+
+    function testSellTokens() external {
+        vm.startPrank(USER_1);
+        bondingCurve.buyTokens{value: 4 ether}(2 ether);
+        bondingCurve.sellTokens(1 ether);
+        vm.stopPrank();
+        assertEq(token.balanceOf(USER_1), 1 ether);
+        assertEq(address(USER_1).balance, 99 ether);
+    }
+
+    function testGetBuyPriceForTokens() external view {
+        assertEq(bondingCurve.getBuyPriceForTokens(3 ether), 9 ether);
+    }
 }

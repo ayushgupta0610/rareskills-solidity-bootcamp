@@ -19,7 +19,6 @@ contract BondingCurve is Ownable, ReentrancyGuard {
 
     // Taking an assumption that the price of the xth token is y => y = 2x + 0 (slope defined as 2)
 
-    error BondingCurve_TokenNotAllowed();
     error BondingCurve_ZeroAddress();
     error BondingCurve_ZeroAmount();
     error BondingCurve_InsufficientBalance();
@@ -64,47 +63,45 @@ contract BondingCurve is Ownable, ReentrancyGuard {
         if (token.balanceOf(_msgSender()) < noOfTokens) {
             revert BondingCurve_InsufficientBalance();
         }
-        token.burn(_msgSender(), noOfTokens); // This saves one transferFrom operation | or would two separate transactions be better?
         // Check if the protocol has enough liquidity / ether to pay back | Ideally it should to be a solvent protocol
         uint256 tokenValue = getValueToReceiveFromTokens(noOfTokens);
         if (tokenValue > address(this).balance) {
             revert BondingCurve_NotEnoughLiquidity();
         }
+        token.burn(_msgSender(), noOfTokens); // This saves one transferFrom operation | or would two separate transactions be better?
         (bool success,) = _msgSender().call{value: tokenValue}("");
         if (!success) revert BondingCurve_TransferFailed();
         return tokenValue;
     }
 
     // TODO: Variable name change and proper code commenting
-    function getBuyPriceForTokens(uint256 noOfTokens) public view returns (uint256 priceAtNewX) {
+    function getBuyPriceForTokens(uint256 noOfTokens) public view returns (uint256 buyPriceForTokens) {
         // Calculate the area of yx graph with x being the amount, ie the price of the next token to be minted
         uint256 totalSupply = getTotalSupplyOfTokenMinted();
-        uint256 newX = totalSupply + noOfTokens;
+        uint256 supplyAfterBuying = totalSupply + noOfTokens;
         // Following the y = 2x equation to calculate the area under the curve / price
-        priceAtNewX = newX ** 2 - totalSupply ** 2;
+        buyPriceForTokens = (supplyAfterBuying ** 2 - totalSupply ** 2) / 10 ** TOKEN_DECIMAL;
     }
 
     // TODO: Variable name change and proper code commenting
-    function getSellPriceForTokens(uint256 noOfTokens) public view returns (uint256) {
+    function getSellPriceForTokens(uint256 noOfTokens) public view returns (uint256 sellPriceForTokens) {
         // Get the sell price for the tokens
         // In second iteration, take into account the spread for protocol
         uint256 totalSupply = getTotalSupplyOfTokenMinted();
-        uint256 newX = totalSupply - noOfTokens;
+        uint256 supplyAfterSelling = totalSupply - noOfTokens;
         // Following the y = 2x equation to calculate the area under the curve / price
-        uint256 priceAtNewX = totalSupply ** 2 - newX ** 2;
-        return priceAtNewX;
+        sellPriceForTokens = (totalSupply ** 2 - supplyAfterSelling ** 2) / 10 ** TOKEN_DECIMAL;
     }
 
-    function getNoOfTokensThatCanBeMintedWith(uint256 value) public view returns (uint256) {}
+    // function getNoOfTokensThatCanBeMintedWith(uint256 value) public view returns (uint256) {}
 
-    function getValueToReceiveFromTokens(uint256 noOfTokens) public view returns (uint256) {
+    function getValueToReceiveFromTokens(uint256 noOfTokens) public view returns (uint256 value) {
         uint256 totalSupply = getTotalSupplyOfTokenMinted();
         if (totalSupply < noOfTokens) {
             revert BondingCurve_NotEnoughLiquidity();
         }
-        uint256 newX = totalSupply - noOfTokens;
-        uint256 priceAtNewX = totalSupply ** 2 - newX ** 2;
-        return priceAtNewX;
+        uint256 supplyAfterSelling = totalSupply - noOfTokens;
+        value = (totalSupply ** 2 - supplyAfterSelling ** 2) / 10 ** TOKEN_DECIMAL;
     }
 
     // Get the amount of ETH deposited in the protocol
