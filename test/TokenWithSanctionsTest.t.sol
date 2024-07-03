@@ -20,9 +20,9 @@ contract TokenWithSanctionsTest is Test {
     // Test if admin can set and remove the blacklist
     function testOnlyAdminCanBlacklist() public {
         vm.startPrank(ADMIN);
-        tokenWithSanctions.setBlacklist(ACCOUNT, true);
+        tokenWithSanctions.setBlacklist(ACCOUNT, 1);
         assert(tokenWithSanctions.isBlacklistedAccount(ACCOUNT));
-        tokenWithSanctions.setBlacklist(ACCOUNT, false);
+        tokenWithSanctions.setBlacklist(ACCOUNT, 0);
         assert(!tokenWithSanctions.isBlacklistedAccount(ACCOUNT));
         vm.stopPrank();
     }
@@ -31,7 +31,7 @@ contract TokenWithSanctionsTest is Test {
     function testRevertsIfUserSetsBlacklist() public {
         vm.startPrank(USER);
         vm.expectRevert(TokenWithSanctions.TokenWithSanctions__RestrictedToAdmins.selector);
-        tokenWithSanctions.setBlacklist(ACCOUNT, true);
+        tokenWithSanctions.setBlacklist(ACCOUNT, 1);
         vm.stopPrank();
     }
 
@@ -39,7 +39,7 @@ contract TokenWithSanctionsTest is Test {
     function testIfBlacklistedAccountCantTransferTokens() public {
         vm.startPrank(ADMIN);
         tokenWithSanctions.transfer(ACCOUNT, 10 ether); // Transfer of 10 tokens
-        tokenWithSanctions.setBlacklist(ACCOUNT, true);
+        tokenWithSanctions.setBlacklist(ACCOUNT, 1);
         vm.expectRevert(TokenWithSanctions.TokenWithSanctions__RecipientIsBlacklisted.selector);
         tokenWithSanctions.transfer(ACCOUNT, 1 ether);
         vm.stopPrank();
