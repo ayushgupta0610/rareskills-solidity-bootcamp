@@ -10,8 +10,6 @@ contract BondingCurveTest is Test {
     BondingCurve public bondingCurve;
     Token public token;
 
-    string public constant NAME = "BondingCurve";
-    string public constant SYMBOL = "BC";
     address public ADMIN = makeAddr("admin");
     address public USER_1 = makeAddr("user1");
     address public USER_2 = makeAddr("user2");
