@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+// // SPDX-License-Identifier: MIT
+// pragma solidity 0.8.23;
 
+// import {}
 
+// contract UntrustedEscrow {
 
-contract UntrustedEscrow {
-
-}
+// }

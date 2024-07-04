@@ -2,7 +2,7 @@
 pragma solidity 0.8.23;
 
 import {ERC20Burnable, ERC20} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface Token {
@@ -13,22 +13,30 @@ interface Token {
     function decimals() external view returns (uint8);
 }
 
-contract BondingCurve is Ownable, ReentrancyGuard {
+contract BondingCurve is Ownable2Step, ReentrancyGuard {
     // 1. Note: Take spread into account and the spread value received will go to the protocol
     // 2. Note (continued): Which then can be withdrawn by the admin of the protocol
 
     // Taking an assumption that the price of the xth token is y => y = 2x + 0 (slope defined as 2)
 
     error BondingCurve_ZeroAddress();
-    error BondingCurve_ZeroAmount();
     error BondingCurve_InsufficientBalance();
     error BondingCurve_InsufficientFiatAmount(); // Fiat here being referred to the token with which the user can buy the token (ETH)
     error BondingCurve_NotEnoughLiquidity();
     error BondingCurve_TransferFailed();
+    error BondingCurve_InsufficientTokenValue();
+    error BondingCurve_TradeExpired();
 
     Token private token;
 
     uint8 immutable TOKEN_DECIMAL;
+
+    modifier ensureDeadline(uint256 deadline) {
+        if (block.timestamp > deadline) {
+            revert BondingCurve_TradeExpired();
+        }
+        _;
+    }
 
     constructor(address _initialOwner, address _allowedToken) Ownable(_initialOwner) {
         if (_initialOwner == address(0) || _allowedToken == address(0)) {
@@ -38,12 +46,14 @@ contract BondingCurve is Ownable, ReentrancyGuard {
         TOKEN_DECIMAL = token.decimals();
     }
 
-    // NOTE: timestamp/deadline aspect can be added to ensure that the user's txn cannot be frontrun
-    // NOTE: min and max no of tokens that the user would receive can also be added
-    function buyTokens(uint256 noOfTokens) external payable nonReentrant returns (uint256) {
+    function buyTokens(uint256 noOfTokens, uint256 minTokens, uint256 deadline) external payable ensureDeadline(deadline) nonReentrant returns (uint256) {
         // Check for sufficient value deposited as the buy price for the number of tokens
         uint256 requiredValueToMintTokens = getBuyPriceForTokens(noOfTokens);
         if (msg.value < requiredValueToMintTokens) {
+            revert BondingCurve_InsufficientFiatAmount();
+        }
+        uint256 tokensToBuy = getNoOfTokensThatCanBeMintedWith(msg.value);
+        if (tokensToBuy < minTokens) {
             revert BondingCurve_InsufficientFiatAmount();
         }
         // return the left over msg.value to the user
@@ -56,10 +66,8 @@ contract BondingCurve is Ownable, ReentrancyGuard {
         return remainingValue;
     }
 
-    // NOTE: timestamp/deadline aspect can be added to ensure that the user's txn cannot be frontrun
-    // NOTE: min and max value that would be received by the user can also be added
-    function sellTokens(uint256 noOfTokens) external nonReentrant returns (uint256) {
-        // Check for sufficient value is received for the number of tokens burnt
+    function sellTokens(uint256 noOfTokens, uint256 minValue, uint256 deadline) external ensureDeadline(deadline) nonReentrant returns (uint256) {
+        // Check if sufficient value is received for the number of tokens burnt
         if (token.balanceOf(_msgSender()) < noOfTokens) {
             revert BondingCurve_InsufficientBalance();
         }
@@ -68,13 +76,15 @@ contract BondingCurve is Ownable, ReentrancyGuard {
         if (tokenValue > address(this).balance) {
             revert BondingCurve_NotEnoughLiquidity();
         }
+        if (tokenValue < minValue) {
+            revert BondingCurve_InsufficientTokenValue();
+        }
         token.burn(_msgSender(), noOfTokens); // This saves one transferFrom operation | or would two separate transactions be better?
         (bool success,) = _msgSender().call{value: tokenValue}("");
         if (!success) revert BondingCurve_TransferFailed();
         return tokenValue;
     }
 
-    // TODO: Variable name change and proper code commenting
     function getBuyPriceForTokens(uint256 noOfTokens) public view returns (uint256 buyPriceForTokens) {
         // Calculate the area of yx graph with x being the amount, ie the price of the next token to be minted
         uint256 totalSupply = getTotalSupplyOfTokenMinted();
@@ -83,17 +93,14 @@ contract BondingCurve is Ownable, ReentrancyGuard {
         buyPriceForTokens = (supplyAfterBuying ** 2 - totalSupply ** 2) / 10 ** TOKEN_DECIMAL;
     }
 
-    // TODO: Variable name change and proper code commenting
-    function getSellPriceForTokens(uint256 noOfTokens) public view returns (uint256 sellPriceForTokens) {
-        // Get the sell price for the tokens
-        // In second iteration, take into account the spread for protocol
+    function getNoOfTokensThatCanBeMintedWith(uint256 value) public view returns (uint256) {
         uint256 totalSupply = getTotalSupplyOfTokenMinted();
-        uint256 supplyAfterSelling = totalSupply - noOfTokens;
-        // Following the y = 2x equation to calculate the area under the curve / price
-        sellPriceForTokens = (totalSupply ** 2 - supplyAfterSelling ** 2) / 10 ** TOKEN_DECIMAL;
+        uint256 currentPrice = 2 * totalSupply;
+        if (currentPrice>value) return 0;
+        // Following: y = 2x + 0 and the value provided being the area of the new triangle, we need to find out sqrt(totalSupply**2 + value) - totalSupply
+        uint256 sqOfTokens = totalSupply ** 2 - value;
+        return sqrt(sqOfTokens) - totalSupply;
     }
-
-    // function getNoOfTokensThatCanBeMintedWith(uint256 value) public view returns (uint256) {}
 
     function getValueToReceiveFromTokens(uint256 noOfTokens) public view returns (uint256 value) {
         uint256 totalSupply = getTotalSupplyOfTokenMinted();
@@ -113,11 +120,24 @@ contract BondingCurve is Ownable, ReentrancyGuard {
         return token.totalSupply();
     }
 
-    // function withdrawDust() external nonReentrant onlyOwner {
-    //     // Calculate how much should be the amount that the owner can withdraw
-    //     uint256 withdrawableAmount = address(this).balance; // CHECK THIS: Not a decentralised protocol if this is there
-    //     (bool success,) = owner().call{value: withdrawableAmount}("");
-    //     if (!success) revert BondingCurve_TransferFailed();
-    // }
-
+    function sqrt(uint256 x) public pure returns (uint256 result) {
+        assembly {
+            // Start by checking if the input is zero.
+            // If so, the result is also zero.
+            switch x
+            case 0 {
+                result := 0
+            }
+            default {
+                // Use the Babylonian method to approximate the square root.
+                let z := x
+                let y := div(add(z, 1), 2)
+                for { } gt(z, y) { } {
+                    z := y
+                    y := div(add(div(x, y), y), 2)
+                }
+                result := z
+            }
+        }
+    }
 }

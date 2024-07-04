@@ -34,7 +34,7 @@ contract TokenWithSanctions is ERC20, AccessControl {
 
     constructor(address admin, string memory name, string memory symbol) ERC20(name, symbol) {
         _grantRole(ADMIN, admin);
-        _mint(admin, 1000000 ether); // As token decimal is standardised to 18
+        _mint(admin, 1000_000 ether); // As token decimal is standardised to 18
     }
 
     // Feedback: Since in each transfer function this is being checked, cast and uncast would add to the gas
