@@ -14,9 +14,11 @@ contract UntrustedEscrow {
 
     error UntrustedEscrow_WaitTimeNotOver();
     error UntrustedEscrow_AlreadyDeposited();
+    error UntrustedEscrow_NothingToWithdraw();
 
     ERC20 private token;
 
+    // Emit events when the below state variables are updated?
     bool public isDeposited;
     uint256 public depositTime;
     address public seller;
@@ -31,11 +33,16 @@ contract UntrustedEscrow {
         token.safeTransferFrom(msg.sender, address(this), _amount);
     }
 
-    function withdraw(uint256 _amount) external {
+    function withdraw() external {
+        if (!isDeposited) {
+            revert UntrustedEscrow_NothingToWithdraw();
+        }
         if (block.timestamp < depositTime + 3 days) {
             revert UntrustedEscrow_WaitTimeNotOver();
         }
-        token.safeTransfer(seller, _amount);
+        isDeposited = false;
+        uint256 amount = token.balanceOf(address(this));
+        token.safeTransfer(seller, amount);
     }
 
 }
