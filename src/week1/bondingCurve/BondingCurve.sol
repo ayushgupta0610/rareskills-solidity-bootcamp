@@ -98,7 +98,7 @@ contract BondingCurve is Ownable2Step, ReentrancyGuard {
         uint256 currentPrice = 2 * totalSupply;
         if (currentPrice>value) return 0;
         // Following: y = 2x + 0 and the value provided being the area of the new triangle, we need to find out sqrt(totalSupply**2 + value) - totalSupply
-        uint256 sqOfTokens = totalSupply ** 2 - value;
+        uint256 sqOfTokens = (totalSupply ** 2) / 10 ** TOKEN_DECIMAL  + value;
         return sqrt(sqOfTokens) - totalSupply;
     }
 

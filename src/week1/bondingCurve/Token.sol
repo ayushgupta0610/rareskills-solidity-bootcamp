@@ -10,7 +10,7 @@ import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step
  *     @dev This contract is a token contract that can be minted and burned by
  *     @notice Only the BondingCurve contract can mint and burn these tokens
  */
-contract Token is ERC20Burnable, Ownable2Step {
+contract Token is ERC20Burnable, Ownable {
     error Token_ZeroAmount();
 
     // Ownership transfer would be required to BondingCurve contract

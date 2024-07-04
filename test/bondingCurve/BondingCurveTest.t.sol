@@ -13,6 +13,8 @@ contract BondingCurveTest is Test {
     address public ADMIN = makeAddr("admin");
     address public USER_1 = makeAddr("user1");
     address public USER_2 = makeAddr("user2");
+    uint256 constant STARTING_BALANCE = 100 ether;
+    uint256 constant TOKEN_DECIMAL = 18;
 
     function setUp() public {
         vm.startPrank(ADMIN);
@@ -20,32 +22,35 @@ contract BondingCurveTest is Test {
         bondingCurve = new BondingCurve(ADMIN, address(token));
         token.transferOwnership(address(bondingCurve));
         vm.stopPrank();
-        vm.deal(USER_1, 100 ether);
-        vm.deal(USER_2, 100 ether);
+        vm.deal(USER_1, STARTING_BALANCE);
+        vm.deal(USER_2, STARTING_BALANCE);
     }
 
-    // function testBuyTokens() external payable {
-    //     vm.startPrank(USER_1);
-    //     bondingCurve.buyTokens{value: 4 ether}(2 ether);
-    //     vm.stopPrank();
-    //     assertEq(token.balanceOf(USER_1), 2 ether);
-    // }
+    function testBuyTokens() external payable {
+        vm.startPrank(USER_1);
+        uint256 fiatValue = 4 ether;
+        uint256 noOfTokens = 2 ether; // 2 tokens since the decimal value is 18
+        uint256 requiredValueToMintTokens = bondingCurve.getNoOfTokensThatCanBeMintedWith(fiatValue);
+        uint256 deadline = block.timestamp;
+        bondingCurve.buyTokens{value: fiatValue}(noOfTokens, requiredValueToMintTokens, deadline);
+        vm.stopPrank();
+        assertEq(token.balanceOf(USER_1), noOfTokens);
+    }
 
-    // function testGetValueToReceiveFromTokens() external {
-    //     vm.startPrank(USER_1);
-    //     bondingCurve.buyTokens{value: 4 ether}(2 ether);
-    //     vm.stopPrank();
-    //     assertEq(bondingCurve.getValueToReceiveFromTokens(1 ether), 3 ether);
-    // }
-
-    // function testSellTokens() external {
-    //     vm.startPrank(USER_1);
-    //     bondingCurve.buyTokens{value: 4 ether}(2 ether);
-    //     bondingCurve.sellTokens(1 ether);
-    //     vm.stopPrank();
-    //     assertEq(token.balanceOf(USER_1), 1 ether);
-    //     assertEq(address(USER_1).balance, 99 ether);
-    // }
+    function testSellTokens() external {
+        vm.startPrank(USER_1);
+        uint256 fiatValue = 4 ether;
+        uint256 noOfTokens = 2 ether; // 2 tokens since the decimal value is 18
+        uint256 requiredValueToMintTokens = bondingCurve.getNoOfTokensThatCanBeMintedWith(fiatValue);
+        uint256 deadline = block.timestamp;
+        bondingCurve.buyTokens{value: fiatValue}(noOfTokens, requiredValueToMintTokens, deadline);
+        uint256 tokensToSell = 1 ether;
+        uint256 requiredValueToSellTokens = bondingCurve.getValueToReceiveFromTokens(tokensToSell);
+        bondingCurve.sellTokens(tokensToSell, requiredValueToSellTokens, deadline);
+        vm.stopPrank();
+        assertEq(token.balanceOf(USER_1), noOfTokens - tokensToSell);
+        assertEq(address(USER_1).balance, STARTING_BALANCE - (noOfTokens - tokensToSell) ** 2 / 10 ** TOKEN_DECIMAL);
+    }
 
     function testGetBuyPriceForTokens() external view {
         assertEq(bondingCurve.getBuyPriceForTokens(3 ether), 9 ether);
