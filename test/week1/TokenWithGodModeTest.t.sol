@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
-import {TokenWithGodMode} from "../src/week1/TokenWithGodMode.sol";
+import {TokenWithGodMode} from "../../src/week1/TokenWithGodMode.sol";
 
 contract TokenWithGodModeTest is Test {
     TokenWithGodMode public tokenWithGodMode;

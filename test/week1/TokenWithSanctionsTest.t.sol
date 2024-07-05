@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
-import {TokenWithSanctions} from "../src/week1/TokenWithSanctions.sol";
+import {TokenWithSanctions} from "../../src/week1/TokenWithSanctions.sol";
 
 contract TokenWithSanctionsTest is Test {
     TokenWithSanctions public tokenWithSanctions;
