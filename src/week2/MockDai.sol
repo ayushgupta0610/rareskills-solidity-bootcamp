@@ -6,7 +6,10 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract MockDai is ERC20 {
 
     constructor(string memory _name, string memory _symbol) ERC20(_name, _symbol) {
-        _mint(msg.sender, 100_000_000 ether);
+        _mint(msg.sender, 100_000_000_000 ether);
     }
 
+    function decimals() public pure override returns (uint8) {
+        return 18;
+    }
 }
