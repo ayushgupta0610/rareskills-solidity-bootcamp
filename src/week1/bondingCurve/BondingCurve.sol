@@ -14,9 +14,6 @@ interface Token {
 }
 
 contract BondingCurve is Ownable2Step, ReentrancyGuard {
-    // 1. Note: Take spread into account and the spread value received will go to the protocol
-    // 2. Note (continued): Which then can be withdrawn by the admin of the protocol
-    // 3. Note : Should option to withdraw dust be there?
 
     // Taking an assumption that the price of the xth token is y => y = 2x + 0 (slope defined as 2)
 
