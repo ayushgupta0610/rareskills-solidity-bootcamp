@@ -18,13 +18,13 @@ contract ERC4626Attack is Test {
         mockDai = new MockDai("MockDai", "MDAI");
         vault = new Vault(mockDai, "Vault", "VLT");
         // Fund Alice and Bob with 1000_000_000 DAI
-        mockDai.transfer(alice, 1000_000_000 ether);
-        mockDai.transfer(bob, 1000_000_000 ether);
+        mockDai.transfer(alice, 1_000_000_000 ether);
+        mockDai.transfer(bob, 1_000_000_000 ether);
         // Approvals by bob and alice on Vault contract
         vm.prank(alice);
-        mockDai.approve(address(vault), 1000_000_000 ether);
+        mockDai.approve(address(vault), 1_000_000_000 ether);
         vm.prank(bob);
-        mockDai.approve(address(vault), 1000_000_000 ether);
+        mockDai.approve(address(vault), 1_000_000_000 ether);
     }
 
     // For the case of DAI, the decimals is 18
@@ -55,7 +55,7 @@ contract ERC4626Attack is Test {
         assertEq(vault.previewDeposit(.0000000000001 ether), 0);
     }
 
-    // // For the case of USDC, the decimals is 18
+    // // For the case of USDC, the decimals is 6
     // function testAttackForUSDC() public {
     //     // 1. Bob deposits 1000 USDC and gets issued 1000 shares of Vault tokens
     //     // 2. Alice tries depositing 100 USDC and should get issued 100 shares of Vault tokens
