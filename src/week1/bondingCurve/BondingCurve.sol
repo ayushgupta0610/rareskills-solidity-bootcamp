@@ -27,7 +27,7 @@ contract BondingCurve is Ownable2Step, ReentrancyGuard {
 
     Token private token;
 
-    uint8 immutable TOKEN_DECIMAL;
+    uint8 immutable TOKEN_PRECISION;
 
     modifier ensureDeadline(uint256 deadline) {
         if (block.timestamp > deadline) {
@@ -41,7 +41,7 @@ contract BondingCurve is Ownable2Step, ReentrancyGuard {
             revert BondingCurve_ZeroAddress();
         }
         token = Token(_allowedToken);
-        TOKEN_DECIMAL = token.decimals();
+        TOKEN_PRECISION = token.decimals();
     }
 
     function buyTokens(uint256 noOfTokens, uint256 minTokens, uint256 deadline) external payable ensureDeadline(deadline) nonReentrant returns (uint256) {
@@ -88,7 +88,7 @@ contract BondingCurve is Ownable2Step, ReentrancyGuard {
         uint256 totalSupply = getTotalSupplyOfTokenMinted();
         uint256 supplyAfterBuying = totalSupply + noOfTokens;
         // Following the y = 2x equation to calculate the area under the curve / price
-        buyPriceForTokens = (supplyAfterBuying ** 2 - totalSupply ** 2) / 10 ** TOKEN_DECIMAL;
+        buyPriceForTokens = (supplyAfterBuying ** 2 - totalSupply ** 2) / 10 ** TOKEN_PRECISION;
     }
 
     function getNoOfTokensThatCanBeMintedWith(uint256 value) public view returns (uint256) {
@@ -96,7 +96,7 @@ contract BondingCurve is Ownable2Step, ReentrancyGuard {
         uint256 currentPrice = 2 * totalSupply;
         if (currentPrice>value) return 0;
         // Following: y = 2x + 0 and the value provided being the area of the new triangle, we need to find out sqrt(totalSupply**2 + value) - totalSupply
-        uint256 sqOfTokens = (totalSupply ** 2) / 10 ** TOKEN_DECIMAL  + value;
+        uint256 sqOfTokens = (totalSupply ** 2) / 10 ** TOKEN_PRECISION  + value;
         return sqrt(sqOfTokens) - totalSupply;
     }
 
@@ -106,7 +106,7 @@ contract BondingCurve is Ownable2Step, ReentrancyGuard {
             revert BondingCurve_NotEnoughLiquidity();
         }
         uint256 supplyAfterSelling = totalSupply - noOfTokens;
-        value = (totalSupply ** 2 - supplyAfterSelling ** 2) / 10 ** TOKEN_DECIMAL;
+        value = (totalSupply ** 2 - supplyAfterSelling ** 2) / 10 ** TOKEN_PRECISION;
     }
 
     // Get the amount of ETH deposited in the protocol

@@ -12,3 +12,5 @@ Practise Exercises:
 -   **BondingCurve.sol**: Token sale and buyback with bonding curve. The more tokens a user buys, the more expensive the token becomes. (linear bonding curve)
 -   **UntrustedEscrow.sol**: A contract where a buyer can put an arbitrary ERC20 token into a contract and a seller can withdraw it 3 days later
 
+Week 3, 4, 5 exercises were to complete UniswapV2 puzzles [https://github.com/RareSkills/uniswap-v2-puzzles]
+
