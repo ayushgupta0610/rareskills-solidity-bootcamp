@@ -127,14 +127,12 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
     }
 
     // this low-level function should be called from a contract which performs important safety checks
-    function mint(address to, uint amount0, uint amount1) external nonReentrant returns (uint liquidity) {
+    function mint(address to, uint amount0, uint amount1, uint minLiquidity) external nonReentrant returns (uint liquidity) {
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
         address _token0 = token0;                                // gas savings
         address _token1 = token1;                                // gas savings
         uint balance0 = _token0.balanceOf(address(this));
         uint balance1 = _token1.balanceOf(address(this));
-        // uint amount0 = balance0 - _reserve0;
-        // uint amount1 = balance1 - _reserve1;
         _token0.safeTransferFrom(msg.sender, address(this), amount0);
         _token1.safeTransferFrom(msg.sender, address(this), amount1);
         bool feeOn = _mintFee(_reserve0, _reserve1);
@@ -143,9 +141,9 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
             liquidity = FixedPointMathLib.sqrt(amount0.mulWad(amount1)) - MINIMUM_LIQUIDITY;
            _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
         } else {
-            liquidity = FixedPointMathLib.min((amount0.mulWad(_totalSupply)).divWad(_reserve0), (amount1.mulWad(_totalSupply)).divWad(_reserve1));
+            liquidity = FixedPointMathLib.min((amount0 * (_totalSupply)) / (_reserve0), (amount1 * (_totalSupply)) / (_reserve1));
         }
-        if (liquidity < 0) {
+        if (liquidity < minLiquidity) {
             revert UniswapV2Pair__INSUFFICIENT_LIQUIDITY_MINTED();
         }
         _mint(to, liquidity);
@@ -156,21 +154,23 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
     }
 
     // this low-level function should be called from a contract which performs important safety checks
-    function burn(address to, uint liquidity) external nonReentrant returns (uint amount0, uint amount1) {
+    function burn(uint liquidity, address to, uint minAmount0, uint minAmount1) external nonReentrant returns (uint amount0, uint amount1) {
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
         address _token0 = token0;                                // gas savings
         address _token1 = token1;                                // gas savings
         uint balance0 = _token0.balanceOf(address(this));
         uint balance1 = _token1.balanceOf(address(this));
-        // uint liquidity = balanceOf(address(this));
         address(this).safeTransferFrom(msg.sender, address(this), liquidity);
 
         bool feeOn = _mintFee(_reserve0, _reserve1);
         uint _totalSupply = totalSupply(); // gas savings, must be defined here since totalSupply can update in _mintFee
-        amount0 = (liquidity.mulWad(balance0)).divWad(_totalSupply); // using balances ensures pro-rata distribution
-        amount1 = (liquidity.mulWad(balance1)).divWad(_totalSupply); // using balances ensures pro-rata distribution
+        amount0 = (liquidity * (balance0)) / (_totalSupply); // using balances ensures pro-rata distribution
+        amount1 = (liquidity * (balance1)) / (_totalSupply); // using balances ensures pro-rata distribution
         if (!(amount0 > 0 && amount1 > 0)) {
             revert UniswapV2Pair__INSUFFICIENT_LIQUIDITY_BURNED();
+        }
+        if (minAmount0 > amount0 || minAmount1 > amount1) {
+            revert UniswapV2Pair__INSUFFICIENT_OUTPUT_AMOUNT();
         }
         _burn(address(this), liquidity);
         _token0.safeTransfer(to, amount0);
@@ -184,8 +184,8 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
     }
 
     // this low-level function should be called from a contract which performs important safety checks
-    function swap(uint amount0In, uint amount1In, uint amount0Out, uint amount1Out, address to) external nonReentrant {
-        if(!(amount0Out > 0 || amount1Out > 0)) {
+    function swap(uint amount0In, uint amount1In, uint amount0OutMin, uint amount1OutMin, address to) external nonReentrant {
+        if(!(amount0OutMin > 0 || amount1OutMin > 0)) {
             revert UniswapV2Pair__INSUFFICIENT_OUTPUT_AMOUNT();
         }
         if (!(amount0In > 0 || amount1In > 0)) {
@@ -196,29 +196,20 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
         _token0.safeTransferFrom(msg.sender, address(this), amount0In);
         _token1.safeTransferFrom(msg.sender, address(this), amount1In);
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
-        if (!(amount0Out < _reserve0 && amount1Out < _reserve1)) {
-            revert UniswapV2Pair__INSUFFICIENT_LIQUIDITY();
-        }
+        // if (!(amount0Out < _reserve0 && amount1Out < _reserve1)) {
+        //     revert UniswapV2Pair__INSUFFICIENT_LIQUIDITY();
+        // }
         uint balance0;
         uint balance1;
         { // scope for _token{0,1}, avoids stack too deep errors
             if (!(to != _token0 && to != _token1)) {
                 revert UniswapV2Pair__INVALID_TO();
             }
-            if (amount0Out > 0) _token0.safeTransfer(to, amount0Out); // optimistically transfer tokens
-            if (amount1Out > 0) _token1.safeTransfer(to,amount1Out); // optimistically transfer tokens
+            if (amount0OutMin > 0) _token0.safeTransfer(to, amount0OutMin); // optimistically transfer tokens
+            if (amount1OutMin > 0) _token1.safeTransfer(to, amount1OutMin); // optimistically transfer tokens
             balance0 = _token0.balanceOf(address(this));
             balance1 = _token1.balanceOf(address(this));
         }
-        uint amount0In;
-        uint amount1In;
-        // unchecked {
-        //     amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
-        //     amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0;
-        // }
-        // if (!(amount0In > 0 || amount1In > 0)) {
-        //     revert UniswapV2Pair__INSUFFICIENT_INPUT_AMOUNT();
-        // }
         { // scope for reserve{0,1}Adjusted, avoids stack too deep errors
             uint balance0Adjusted = balance0.mulWad(1000) - amount0In.mulWad(3);
             uint balance1Adjusted = balance1.mulWad(1000) - amount1In.mulWad(3);
@@ -227,7 +218,7 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
             }
         }
         _update(balance0, balance1, _reserve0, _reserve1);
-        emit Swap(msg.sender, amount0In, amount1In, amount0Out, amount1Out, to);
+        emit Swap(msg.sender, amount0In, amount1In, amount0OutMin, amount1OutMin, to);
     }
 
     // force balances to match reserves
@@ -243,11 +234,11 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
         _update(token0.balanceOf(address(this)), token1.balanceOf(address(this)), reserve0, reserve1);
     }
 
-    function name() public view override returns (string memory) {
+    function name() public pure override returns (string memory) {
         return NAME;
     }
 
-    function symbol() public view override returns (string memory) {
+    function symbol() public pure override returns (string memory) {
         return SYMBOL;
     }
 
@@ -261,7 +252,7 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
         return token.balanceOf(address(this));
     }
 
-    function flashFee(address token, uint256 amount) public view override returns (uint256) {
+    function flashFee(address token, uint256 amount) public pure override returns (uint256) {
         return (amount.mulWad(FLASH_LOAN_FEE)).divWad(100000);
     }
 
@@ -274,15 +265,19 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
         if (amount > token.balanceOf(address(this))) {
             revert UniswapV2Pair__NOT_ENOUGH_BALANCE();
         }
+        (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
         uint256 _fee = flashFee(token, amount);
         token.safeTransfer(address(receiver), amount);
 
         if (receiver.onFlashLoan(msg.sender, token, amount, _fee, data) != CALLBACK_SUCCESS) {
             revert UniswapV2Pair__INVALID_CALLBACK_RETURN();
         }
-
         token.safeTransferFrom(address(receiver), address(this), amount + _fee);
 
+        uint balance0 = token0.balanceOf(address(this));
+        uint balance1 = token1.balanceOf(address(this));
+
+        _update(balance0, balance1, _reserve0, _reserve1);
         return true;
     }
 }
