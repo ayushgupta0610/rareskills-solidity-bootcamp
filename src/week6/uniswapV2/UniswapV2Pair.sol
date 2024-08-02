@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {ERC20} from "lib/solady/src/tokens/ERC20.sol";
 import {IUniswapV2Pair} from "./interfaces/IUniswapV2Pair.sol";
-import {UQ112x112} from "./libraries/UQ112x112.sol";
 import {IUniswapV2Factory} from "./interfaces/IUniswapV2Factory.sol";
 import {IERC3156FlashLoanBorrower, IERC3156FlashLoanLender} from "./interfaces/IFlashLoanLender.sol";
 import {FixedPointMathLib} from "lib/solady/src/utils/FixedPointMathLib.sol";
@@ -32,7 +31,6 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
     //////////////////////////////
     // Type
     //////////////////////////////
-    using UQ112x112 for uint;
     using FixedPointMathLib for uint;
     using SafeTransferLib for address;
 
@@ -43,6 +41,7 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
     string private constant SYMBOL = 'UNI-V2';
     uint public constant FLASH_LOAN_FEE = 90000; // 0.09%
     uint public constant MINIMUM_LIQUIDITY = 10**3;
+    uint256 constant Q112 = 2**112;
     bytes32 public constant CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
 
     address public factory;
@@ -96,10 +95,8 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
             uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
             if (timeElapsed > 0 && _reserve0 != 0 && _reserve1 != 0) {
                 // * never overflows, and + overflow is desired | TODO: Uncomment this
-                // price0CumulativeLast += uint(UQ112x112.encode(_reserve1).uqdiv(_reserve0)) * timeElapsed;
-                // price1CumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
-                price0CumulativeLast = 0;
-                price1CumulativeLast = 0;
+                price0CumulativeLast += (uint(_reserve1).mulWad(Q112)).divWad(_reserve0).mulWad(timeElapsed);
+                price1CumulativeLast += (uint(_reserve0).mulWad(Q112)).divWad(_reserve1).mulWad(timeElapsed);
             }
             reserve0 = uint112(balance0);
             reserve1 = uint112(balance1);
