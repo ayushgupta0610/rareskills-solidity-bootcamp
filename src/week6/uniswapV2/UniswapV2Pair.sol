@@ -5,6 +5,7 @@ import {ERC20} from "lib/solady/src/tokens/ERC20.sol";
 import {IUniswapV2Pair} from "./interfaces/IUniswapV2Pair.sol";
 import {IUniswapV2Factory} from "./interfaces/IUniswapV2Factory.sol";
 import {IERC3156FlashLoanBorrower, IERC3156FlashLoanLender} from "./interfaces/IFlashLoanLender.sol";
+import {UQ112x112} from "./libraries/UQ112x112.sol";
 import {FixedPointMathLib} from "lib/solady/src/utils/FixedPointMathLib.sol";
 import {ReentrancyGuard} from "lib/solady/src/utils/ReentrancyGuard.sol";
 import {SafeTransferLib} from "lib/solady/src/utils/SafeTransferLib.sol";
@@ -33,6 +34,7 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
     //////////////////////////////
     using FixedPointMathLib for uint;
     using SafeTransferLib for address;
+    using UQ112x112 for uint224;
 
     //////////////////////////////
     // State Variables
@@ -95,8 +97,8 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
             uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
             if (timeElapsed > 0 && _reserve0 != 0 && _reserve1 != 0) {
                 // * never overflows, and + overflow is desired | TODO: Uncomment this
-                price0CumulativeLast += (uint(_reserve1).mulWad(Q112)).divWad(_reserve0).mulWad(timeElapsed);
-                price1CumulativeLast += (uint(_reserve0).mulWad(Q112)).divWad(_reserve1).mulWad(timeElapsed);
+                price0CumulativeLast += uint(UQ112x112.encode(_reserve1).uqdiv(_reserve0)) * timeElapsed;
+                price1CumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
             }
             reserve0 = uint112(balance0);
             reserve1 = uint112(balance1);
