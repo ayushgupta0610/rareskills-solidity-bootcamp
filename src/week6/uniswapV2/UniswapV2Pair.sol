@@ -254,7 +254,7 @@ contract UniswapV2Pair is ERC20, IERC3156FlashLoanLender, ReentrancyGuard {
         return token.balanceOf(address(this));
     }
 
-    function flashFee(address token, uint256 amount) public pure override returns (uint256) {
+    function flashFee(address, uint256 amount) public pure override returns (uint256) {
         return (amount.mulWad(FLASH_LOAN_FEE)).divWad(100000);
     }
 
