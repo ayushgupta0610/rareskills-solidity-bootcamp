@@ -14,8 +14,10 @@ contract StakingNFT is Ownable2Step, ERC721, ERC721Enumerable, ERC2981 {
     error StakingNFT__NotAuthorized();
     error StakingNFT__TransferFailed();
     error StakingNFT__AlreadyClaimed();
+    error StakingNFT__MintPriceNotMet();
 
     uint256 public constant MAX_SUPPLY = 1000;
+    uint256 public immutable priceToMint;
     uint256 private _nextTokenId;
     BitMaps.BitMap private _claimStatus;
 
@@ -28,20 +30,23 @@ contract StakingNFT is Ownable2Step, ERC721, ERC721Enumerable, ERC2981 {
         _;
     }
 
-    constructor (address initialOwner, string memory name, string memory symbol, address royaltyReceiver) Ownable(initialOwner) ERC721(name, symbol) {
+    constructor (address initialOwner, uint256 mintPrice, string memory name, string memory symbol, address royaltyReceiver) Ownable(initialOwner) ERC721(name, symbol) {
         // _setBaseURI(baseURI);
         _setDefaultRoyalty(royaltyReceiver, 250);
+        priceToMint = mintPrice;
     }
 
     // Add discount functionality for merkle tree verified addresses
     function safeMint(address to) public payable fixedTotalSupply {
+        if (msg.value < priceToMint) {
+            revert StakingNFT__MintPriceNotMet();
+        }
         uint256 tokenId = _nextTokenId++;
         if (msg.sender == owner()) {
             _safeMint(to, tokenId);
         } else {
             // Addresses in a merkle tree can mint NFTs at a discount. Use the bitmap methodology to determine if the address is eligible to mint the NFT.
             // require(merkleTree.verify(merkleRoot, index, account, amount, proof), "MerkleDistributor: Invalid proof.");
-            // require(amount >= price, "StakingNFT: Insufficient amount.");
             if (hasUserClaimed(to)) {
                 revert StakingNFT__AlreadyClaimed();
             }
