@@ -6,6 +6,7 @@ import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/
 import {ERC2981} from "@openzeppelin/contracts/token/common/ERC2981.sol";
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {BitMaps} from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract StakingNFT is Ownable2Step, ERC721, ERC721Enumerable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
@@ -15,9 +16,11 @@ contract StakingNFT is Ownable2Step, ERC721, ERC721Enumerable, ERC2981 {
     error StakingNFT__TransferFailed();
     error StakingNFT__AlreadyClaimed();
     error StakingNFT__MintPriceNotMet();
+    error StakingNFT__InvalidProof();
 
     uint256 public constant MAX_SUPPLY = 1000;
     uint256 public immutable priceToMint;
+    bytes32 public immutable merkleRoot;
     uint256 private _nextTokenId;
     BitMaps.BitMap private _claimStatus;
 
@@ -30,14 +33,15 @@ contract StakingNFT is Ownable2Step, ERC721, ERC721Enumerable, ERC2981 {
         _;
     }
 
-    constructor (address initialOwner, uint256 mintPrice, string memory name, string memory symbol, address royaltyReceiver) Ownable(initialOwner) ERC721(name, symbol) {
+    constructor (address initialOwner, uint256 mintPrice, bytes32 merkleRootBytes32, string memory name, string memory symbol, address royaltyReceiver) Ownable(initialOwner) ERC721(name, symbol) {
         // _setBaseURI(baseURI);
         _setDefaultRoyalty(royaltyReceiver, 250);
         priceToMint = mintPrice;
+        merkleRoot = merkleRootBytes32;
     }
 
     // Add discount functionality for merkle tree verified addresses
-    function safeMint(address to) public payable fixedTotalSupply {
+    function safeMint(address to, bytes32[] calldata merkleProof) public payable fixedTotalSupply {
         if (msg.value < priceToMint) {
             revert StakingNFT__MintPriceNotMet();
         }
@@ -50,18 +54,15 @@ contract StakingNFT is Ownable2Step, ERC721, ERC721Enumerable, ERC2981 {
             if (hasUserClaimed(to)) {
                 revert StakingNFT__AlreadyClaimed();
             }
+            // Verify the merkle proof.
+            uint256 index = uint256(uint160(to));
+            bytes32 node = keccak256(abi.encodePacked(index, to));
+            if (!MerkleProof.verify(merkleProof, merkleRoot, node)) revert StakingNFT__InvalidProof();
+
             _claimStatus.set(uint256(uint160(to)));
+            emit ClaimStatusChanged(to, true);
             _safeMint(to, tokenId);
         }
-    }
-
-    function setClaimStatus(address user, bool status) public {
-        if (status) {
-            _claimStatus.set(uint256(uint160(user)));
-        } else {
-            _claimStatus.unset(uint256(uint160(user)));
-        }
-        emit ClaimStatusChanged(user, status);
     }
 
     function hasUserClaimed(address user) public view returns (bool) {
