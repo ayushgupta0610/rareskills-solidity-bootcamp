@@ -12,13 +12,12 @@ contract StakingNFT is Ownable2Step, ERC721, ERC721Enumerable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
     error StakingNFT__MaxSupplyReached();
-    error StakingNFT__NotAuthorized();
     error StakingNFT__TransferFailed();
     error StakingNFT__AlreadyClaimed();
     error StakingNFT__MintPriceNotMet();
-    error StakingNFT__InvalidProof();
 
     uint256 public constant MAX_SUPPLY = 1000;
+    uint256 public constant DISCOUNT_PERCENTAGE = 15;
     uint256 public immutable priceToMint;
     bytes32 public immutable merkleRoot;
     uint256 private _nextTokenId;
@@ -34,7 +33,6 @@ contract StakingNFT is Ownable2Step, ERC721, ERC721Enumerable, ERC2981 {
     }
 
     constructor (address initialOwner, uint256 mintPrice, bytes32 merkleRootBytes32, string memory name, string memory symbol, address royaltyReceiver) Ownable(initialOwner) ERC721(name, symbol) {
-        // _setBaseURI(baseURI);
         _setDefaultRoyalty(royaltyReceiver, 250);
         priceToMint = mintPrice;
         merkleRoot = merkleRootBytes32;
@@ -42,27 +40,23 @@ contract StakingNFT is Ownable2Step, ERC721, ERC721Enumerable, ERC2981 {
 
     // Add discount functionality for merkle tree verified addresses
     function safeMint(address to, bytes32[] calldata merkleProof) public payable fixedTotalSupply {
-        if (msg.value < priceToMint) {
-            revert StakingNFT__MintPriceNotMet();
-        }
         uint256 tokenId = _nextTokenId++;
-        if (msg.sender == owner()) {
-            _safeMint(to, tokenId);
-        } else {
-            // Addresses in a merkle tree can mint NFTs at a discount. Use the bitmap methodology to determine if the address is eligible to mint the NFT.
-            // require(merkleTree.verify(merkleRoot, index, account, amount, proof), "MerkleDistributor: Invalid proof.");
+        // Verify the merkle proof.
+        uint256 index = uint256(uint160(to));
+        bytes32 node = keccak256(abi.encodePacked(index, to));
+        if (MerkleProof.verify(merkleProof, merkleRoot, node)){
+            if (msg.value < ((priceToMint*(100-DISCOUNT_PERCENTAGE))/100)) {
+                revert StakingNFT__MintPriceNotMet();
+            }
             if (hasUserClaimed(to)) {
                 revert StakingNFT__AlreadyClaimed();
             }
-            // Verify the merkle proof.
-            uint256 index = uint256(uint160(to));
-            bytes32 node = keccak256(abi.encodePacked(index, to));
-            if (!MerkleProof.verify(merkleProof, merkleRoot, node)) revert StakingNFT__InvalidProof();
-
-            _claimStatus.set(uint256(uint160(to)));
             emit ClaimStatusChanged(to, true);
-            _safeMint(to, tokenId);
+            _claimStatus.set(uint256(uint160(to)));
+        } else if (msg.value < priceToMint) {
+            revert StakingNFT__MintPriceNotMet();
         }
+        _safeMint(to, tokenId);
     }
 
     function hasUserClaimed(address user) public view returns (bool) {
@@ -70,7 +64,6 @@ contract StakingNFT is Ownable2Step, ERC721, ERC721Enumerable, ERC2981 {
     } 
 
     // The following functions are overrides required by Solidity.
-
     function _update(address to, uint256 tokenId, address auth)
         internal
         override(ERC721, ERC721Enumerable)
