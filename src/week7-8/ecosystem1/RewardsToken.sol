@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {ERC20} from "lib/solady/src/tokens/ERC20.sol";
 import {Ownable} from "lib/solady/src/auth/Ownable.sol";
 
-contract RewardToken is ERC20, Ownable {
+contract RewardsToken is ERC20, Ownable {
 
     string private i_name;
     string private i_symbol;
