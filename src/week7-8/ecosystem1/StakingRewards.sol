@@ -23,8 +23,9 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
         uint256 rewardsRate; // for now assume that the rewards rate is constant ,ie 10 tokens every 24 hours
     }
 
-    uint256 private constant REWARDS_AMOUNT = 10 * 10 ** 18;
+    uint256 private constant BASE_REWARDS_AMOUNT = 10 * 10 ** 18;
     uint256 public constant REWARDS_INTERVAL = 24 hours;
+    uint256 private constant RATE_INCREASE_FACTOR = 5; // 5% increase per additional NFT
     IERC721 private nft;
     RewardsToken private rewardsToken;
     mapping(address => Rewards) public user_rewards;
@@ -36,7 +37,7 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
     }
 
     // smart contract that can mint new ERC20 tokens and receive ERC721 tokens.  - Done
-    // A classic feature of NFTs is being able to receive them to stake tokens.  -
+    // A classic feature of NFTs is being able to receive them to stake tokens.  - Done
     // Users can send their NFTs and withdraw 10 ERC20 tokens every 24 hours. Don’t forget about decimal places!
     // The user can withdraw the NFT at any time. The smart contract must take possession of the NFT and only the user should be able to withdraw it.
 
@@ -88,7 +89,7 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
         if (block.timestamp > rewards.lastRewardsUpdated + REWARDS_INTERVAL) {
             uint256 timeFactor = (block.timestamp -
                 rewards.lastRewardsUpdated) / REWARDS_INTERVAL;
-            rewards.rewardsAccumulated += timeFactor * REWARDS_AMOUNT;
+            rewards.rewardsAccumulated += timeFactor * rewards.rewardsRate;
             rewards.lastRewardsUpdated += timeFactor * REWARDS_INTERVAL;
         }
         // transfer the rewards accumulated to the user
@@ -100,19 +101,21 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
         // uint256 rewardsRate;
     }
 
+    function _updateRewards(Rewards storage rewards) internal {
+        if (block.timestamp > rewards.lastRewardsUpdated + REWARDS_INTERVAL) {
+            uint256 timeFactor = (block.timestamp - rewards.lastRewardsUpdated) / REWARDS_INTERVAL;
+            rewards.rewardsAccumulated += timeFactor * rewards.rewardsRate;
+            rewards.lastRewardsUpdated += timeFactor * REWARDS_INTERVAL;
+        }
+    }
+
     // Get the rewards accumulated for all the staked nfts by the user
     function withdrawRewards() public nonReentrant {
         Rewards storage rewards = user_rewards[msg.sender];
         if (rewards.nftTokens.length == 0) {
             revert StakingRewards__NoNFTStaked();
         }
-        if (block.timestamp > rewards.lastRewardsUpdated + REWARDS_INTERVAL) {
-            uint256 timeFactor = (block.timestamp -
-                rewards.lastRewardsUpdated) / REWARDS_INTERVAL;
-            rewards.rewardsAccumulated += timeFactor * REWARDS_AMOUNT;
-            rewards.lastRewardsUpdated += timeFactor * REWARDS_INTERVAL;
-        }
-        // transfer the rewards accumulated to the user
+        _updateRewards(rewards);
         rewardsToken.mint(msg.sender, rewards.rewardsAccumulated);
         rewards.totalClaimedRewards += rewards.rewardsAccumulated;
         rewards.rewardsAccumulated = 0;
@@ -123,9 +126,16 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
         nft.safeTransferFrom(msg.sender, address(this), tokenId);
         nft_stakers[tokenId] = msg.sender;
         Rewards storage rewards = user_rewards[msg.sender];
+        
+        // Update rewards before changing the rate
+        _updateRewards(rewards);
+        
         rewards.nftTokens.push(tokenId);
         rewards.lastDepositedTime = block.timestamp;
         rewards.lastRewardsUpdated = block.timestamp;
+        
+        // Update rewards rate based on the number of staked NFTs
+        rewards.rewardsRate = BASE_REWARDS_AMOUNT * (100 + (rewards.nftTokens.length - 1) * RATE_INCREASE_FACTOR) / 100;
     }
 
     // Withdraw the nft token
@@ -133,10 +143,14 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
         if (nft_stakers[tokenId] != msg.sender) {
             revert StakingRewards__Unauthorised();
         }
-        withdrawRewards();
+        Rewards storage rewards = user_rewards[msg.sender];
+        
+        // Update rewards before changing the rate
+        _updateRewards(rewards);
+        
         nft_stakers[tokenId] = address(0);
         nft.safeTransferFrom(address(this), msg.sender, tokenId);
-        Rewards storage rewards = user_rewards[msg.sender];
+        
         uint256 index = 0;
         uint256 length = rewards.nftTokens.length;
         for (uint256 i = 0; i < length; i++) {
@@ -145,10 +159,13 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
                 break;
             }
         }
-        rewards.nftTokens[index] = rewards.nftTokens[
-            rewards.nftTokens.length - 1
-        ];
+        rewards.nftTokens[index] = rewards.nftTokens[rewards.nftTokens.length - 1];
         rewards.nftTokens.pop();
+        
+        // Update rewards rate based on the new number of staked NFTs
+        rewards.rewardsRate = rewards.nftTokens.length > 0 
+            ? BASE_REWARDS_AMOUNT * (100 + (rewards.nftTokens.length - 1) * RATE_INCREASE_FACTOR) / 100
+            : 0;
     }
 
     function getNFTAllowed() external view returns (address) {
@@ -167,14 +184,14 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
         if (block.timestamp > rewards.lastRewardsUpdated + REWARDS_INTERVAL) {
             uint256 timeFactor = (block.timestamp -
                 rewards.lastRewardsUpdated) / REWARDS_INTERVAL;
-            return rewards.rewardsAccumulated + timeFactor * REWARDS_AMOUNT;
+            return rewards.rewardsAccumulated + timeFactor * rewards.rewardsRate;
         } else {
             return rewards.rewardsAccumulated;
         }
     }
 
     function getRewardPerToken() external view returns (uint256) {
-        return REWARDS_AMOUNT; // should be reward rate and different for each user
+        return BASE_REWARDS_AMOUNT; // should be reward rate and different for each user
     }
 
     function getRewardsToken() external view returns (address) {
