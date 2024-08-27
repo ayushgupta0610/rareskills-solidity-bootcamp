@@ -15,17 +15,16 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
 
     struct Rewards {
         uint256[] nftTokens;
-        uint256 lastDepositedTime; // this will affect the rewards rate
         uint256 rewardsAccumulated;
         uint256 totalClaimedRewards;
         uint256 lastRewardsUpdated;
-        // in case the user has deposited various nft tokens at different time intervals
-        uint256 rewardsRate; // for now assume that the rewards rate is constant ,ie 10 tokens every 24 hours
+        uint256 rewardsRate; // for now assume that the rewards rate is constant, ie 10 tokens every 24 hours
     }
 
     uint256 private constant BASE_REWARDS_AMOUNT = 10 * 10 ** 18;
     uint256 public constant REWARDS_INTERVAL = 24 hours;
-    uint256 private constant RATE_INCREASE_FACTOR = 5; // 5% increase per additional NFT
+    uint256 private constant RATE_INCREASE_FACTOR = 5; // 5% increase per additional NFT staked
+
     IERC721 private nft;
     RewardsToken private rewardsToken;
     mapping(address => Rewards) public user_rewards;
@@ -35,11 +34,6 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
         nft = IERC721(nftAddress);
         rewardsToken = new RewardsToken("Rewards Token", "RWD"); // Can come in the form of parameters
     }
-
-    // smart contract that can mint new ERC20 tokens and receive ERC721 tokens.  - Done
-    // A classic feature of NFTs is being able to receive them to stake tokens.  - Done
-    // Users can send their NFTs and withdraw 10 ERC20 tokens every 24 hours. Don’t forget about decimal places!
-    // The user can withdraw the NFT at any time. The smart contract must take possession of the NFT and only the user should be able to withdraw it.
 
     receive() external payable {}
 
@@ -54,7 +48,7 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
      * The selector can be obtained in Solidity with `IERC721Receiver.onERC721Received.selector`.
      */
     function onERC721Received(
-        address operator,
+        address,
         address from,
         uint256 tokenId,
         bytes calldata data
@@ -62,11 +56,14 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
         if (msg.sender != address(nft)) {
             revert StakingRewards__NotOwner();
         }
-        // decode data in case the user wants to stake their nft
-        // if the user wants to withdraw their nft, transfer the nft back to the user
-        // if the user wants to withdraw their reward tokens, transfer 10 reward tokens to the user
-        // if the user wants to withdraw their nft and reward tokens, transfer the nft back to the user and 10 reward tokens to the user
 
+        // Decode the data to understand the user's intention
+        bool toBeStaked = abi.decode(data, (bool));
+
+        if (toBeStaked) {
+            // Stake the NFT
+           stakeFor(from, tokenId);
+        }
         return this.onERC721Received.selector;
     }
 
@@ -96,9 +93,6 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
         rewardsToken.mint(msg.sender, rewards.rewardsAccumulated);
         rewards.totalClaimedRewards += rewards.rewardsAccumulated;
         rewards.rewardsAccumulated = 0;
-
-        // in case the user has deposited various nft tokens at different time intervals
-        // uint256 rewardsRate;
     }
 
     function _updateRewards(Rewards storage rewards) internal {
@@ -122,16 +116,19 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
     }
 
     // Stake the nft token
-    function stake(uint256 tokenId) external {
+    function stakeFor(address user, uint256 tokenId) public {
+        if (msg.sender == address(nft)) {
+            nft_stakers[tokenId] = user;
+        } else {
+            nft_stakers[tokenId] = msg.sender;
+        }
         nft.safeTransferFrom(msg.sender, address(this), tokenId);
-        nft_stakers[tokenId] = msg.sender;
         Rewards storage rewards = user_rewards[msg.sender];
         
         // Update rewards before changing the rate
         _updateRewards(rewards);
         
         rewards.nftTokens.push(tokenId);
-        rewards.lastDepositedTime = block.timestamp;
         rewards.lastRewardsUpdated = block.timestamp;
         
         // Update rewards rate based on the number of staked NFTs
@@ -190,8 +187,8 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
         }
     }
 
-    function getRewardPerToken() external view returns (uint256) {
-        return BASE_REWARDS_AMOUNT; // should be reward rate and different for each user
+    function getRewardPerToken() external pure returns (uint256) {
+        return BASE_REWARDS_AMOUNT;
     }
 
     function getRewardsToken() external view returns (address) {

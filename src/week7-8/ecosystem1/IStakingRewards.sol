@@ -24,7 +24,7 @@ interface IStakingRewards {
     function withdrawRewards() external;
 
     // Stake the nft token
-    function stake(uint256 tokenId) external;
+    function stakeFor(address user, uint256 tokenId) external;
 
     // Withdraw the nft token
     function withdraw(uint256 tokenId) external;
