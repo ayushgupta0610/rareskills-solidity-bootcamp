@@ -5,7 +5,7 @@ interface IStakingRewards {
 
     function getNFTAllowed() external view returns (address);
 
-    function balanceOf(address account) external view returns (uint256);
+    function getNoOfStakedNfts(address account) external view returns (uint256);
 
     function getRewardsAmount(address account) external view returns (uint256);
 
