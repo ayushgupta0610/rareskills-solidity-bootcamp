@@ -17,7 +17,7 @@ contract StakingNFT is Ownable2Step, ERC721, ERC721Enumerable, ERC2981 {
     error StakingNFT__MintPriceNotMet();
 
     uint256 public constant MAX_SUPPLY = 1000;
-    uint256 public constant DISCOUNT_PERCENTAGE = 15;
+    uint256 public immutable discountPercentage;
     uint256 public immutable priceToMint;
     bytes32 public immutable merkleRoot;
     uint256 private _nextTokenId;
@@ -32,20 +32,22 @@ contract StakingNFT is Ownable2Step, ERC721, ERC721Enumerable, ERC2981 {
         _;
     }
 
-    constructor (address initialOwner, uint256 mintPrice, bytes32 merkleRootBytes32, string memory name, string memory symbol, address royaltyReceiver) Ownable(initialOwner) ERC721(name, symbol) {
+    constructor (address initialOwner, uint256 mintPrice, uint256 discountPercent, bytes32 merkleRootBytes32, string memory name, string memory symbol, address royaltyReceiver) Ownable(initialOwner) ERC721(name, symbol) {
         _setDefaultRoyalty(royaltyReceiver, 250);
         priceToMint = mintPrice;
+        discountPercentage = discountPercent;
         merkleRoot = merkleRootBytes32;
     }
 
     // Add discount functionality for merkle tree verified addresses
+    // Enter merkleProof as empty bytes array for the case of regular (and not discounted) minting
     function safeMint(address to, bytes32[] calldata merkleProof) public payable fixedTotalSupply {
         uint256 tokenId = _nextTokenId++;
         // Verify the merkle proof.
-        uint256 index = uint256(uint160(to));
-        bytes32 node = keccak256(abi.encodePacked(index, to));
+        uint256 quantity = 1;
+        bytes32 node = keccak256(abi.encodePacked(to, quantity));
         if (MerkleProof.verify(merkleProof, merkleRoot, node)){
-            if (msg.value < ((priceToMint*(100-DISCOUNT_PERCENTAGE))/100)) {
+            if (msg.value < ((priceToMint*(100-discountPercentage))/100)) {
                 revert StakingNFT__MintPriceNotMet();
             }
             if (hasUserClaimed(to)) {
