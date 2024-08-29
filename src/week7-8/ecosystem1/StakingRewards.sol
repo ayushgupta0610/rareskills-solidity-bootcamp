@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -59,10 +60,10 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
 
         // Decode the data to understand the user's intention
         bool toBeStaked = abi.decode(data, (bool));
-
+        
         if (toBeStaked) {
             // Stake the NFT
-           stakeFor(from, tokenId);
+            stakeFor(from, tokenId);
         }
         return this.onERC721Received.selector;
     }
@@ -83,12 +84,9 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
         }
         rewards.nftTokens = new uint256[](0);
 
-        if (block.timestamp > rewards.lastRewardsUpdated + REWARDS_INTERVAL) {
-            uint256 timeFactor = (block.timestamp -
-                rewards.lastRewardsUpdated) / REWARDS_INTERVAL;
-            rewards.rewardsAccumulated += timeFactor * rewards.rewardsRate;
-            rewards.lastRewardsUpdated += timeFactor * REWARDS_INTERVAL;
-        }
+        // Update the rewards before withdrawing
+        _updateRewards(rewards);
+
         // transfer the rewards accumulated to the user
         rewardsToken.mint(msg.sender, rewards.rewardsAccumulated);
         rewards.totalClaimedRewards += rewards.rewardsAccumulated;
@@ -116,15 +114,19 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
     }
 
     // Stake the nft token
-    function stakeFor(address user, uint256 tokenId) public {
+    function stakeFor(address user, uint256 tokenId) public nonReentrant {
         if (msg.sender == address(nft)) {
             nft_stakers[tokenId] = user;
+            _stakeNFT(user, tokenId);
         } else {
+            nft.transferFrom(msg.sender, address(this), tokenId);
             nft_stakers[tokenId] = msg.sender;
+            _stakeNFT(msg.sender, tokenId);
         }
-        nft.safeTransferFrom(msg.sender, address(this), tokenId);
-        Rewards storage rewards = user_rewards[msg.sender];
-        
+    }
+
+    function _stakeNFT(address user, uint256 tokenId) internal {
+        Rewards storage rewards = user_rewards[user];
         // Update rewards before changing the rate
         _updateRewards(rewards);
         

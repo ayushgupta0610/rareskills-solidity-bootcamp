@@ -10,14 +10,15 @@ contract StakingNFTTest is Test {
     uint256 public constant discountPercentage = 15;
     bytes32 public constant merkleRoot = 0x6bb0d38d40cd012717a4c006cf73055b31f2e3ac5970b8a26f0a2c5411a4196c; // Example merkle root, replace with actual
     address public constant user = 0x47D1111fEC887a7BEb7839bBf0E1b3d215669D86; // Example
-    StakingNFT public stakingNFT;
     address public owner = makeAddr("owner");
+    StakingNFT public stakingNFT;
     
     function setUp() public {
         stakingNFT = new StakingNFT(owner, mintPrice, discountPercentage, merkleRoot, "TestNFT", "TNFT", owner);
     }
 
     function testSafeMintSuccess() public {
+
         // Prepare a valid merkle proof (mocked for this example)
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] = 0x320723cfc0bfa9b0f7c5b275a01ffa5e0f111f05723ba5df2b2684ab86bebe06; // Mocked proof
@@ -27,7 +28,8 @@ contract StakingNFTTest is Test {
         // User mints with discount
         vm.deal(user, mintPrice); // Ensure user has enough ether
         vm.prank(user);
-        stakingNFT.safeMint{value: (mintPrice * (100 - discountPercentage))/ 100}(user, merkleProof);
+        uint256 discountMintPrice = (mintPrice * (100 - discountPercentage))/ 100;
+        stakingNFT.safeMint{value: discountMintPrice}(user, merkleProof);
 
         assertEq(stakingNFT.balanceOf(user), 1, "User should have 1 NFT after minting");
     }
