@@ -54,6 +54,8 @@ contract StakingNFT is Ownable2Step, ERC721, ERC721Enumerable, ERC2981 {
                 revert StakingNFT__AlreadyClaimed();
             }
             emit ClaimStatusChanged(to, true);
+            // Make the claim status true for all the users initially to save gas when setting the bit to false later
+            // Get the status if the user has not claimed already (true), then allow the user to claim and set the status to false
             _claimStatus.set(uint256(uint160(to)));
         } else if (msg.value < priceToMint) {
             revert StakingNFT__MintPriceNotMet();
