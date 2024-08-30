@@ -33,4 +33,9 @@ contract RewardsToken is ERC20, Ownable {
         _burn(from, amount);
     }
 
+    // Withdraw locked ethers
+    function withddraw() external onlyOwner {
+        (bool success, ) = owner().call{ value: (address(this).balance) }("");
+        require(success, "RewardsToken: withdraw failed");
+    }
 }

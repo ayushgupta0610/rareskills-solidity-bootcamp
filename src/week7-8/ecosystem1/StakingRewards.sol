@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -13,6 +12,7 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
     error StakingRewards__NotOwner();
     error StakingRewards__NoNFTStaked();
     error StakingRewards__Unauthorised();
+    error StakingRewards__NotToBeStaked();
 
     struct Rewards {
         uint256[] nftTokens;
@@ -64,6 +64,8 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
         if (toBeStaked) {
             // Stake the NFT
             stakeFor(from, tokenId);
+        } else {
+            revert StakingRewards__NotToBeStaked();
         }
         return this.onERC721Received.selector;
     }
@@ -73,8 +75,9 @@ contract StakingRewards is IERC721Receiver, IStakingRewards, ReentrancyGuard {
         // withdraw the nft token
         // withdraw the rewards
         Rewards storage rewards = user_rewards[msg.sender];
-        // TODO: Optimise the below if possible (use batch transfer)
-        for (uint256 i = 0; i < rewards.nftTokens.length; i++) {
+        // TODO: Optimise the below if possible (allow for a limited batch size withdrawals)
+        uint256 length = rewards.nftTokens.length;
+        for (uint256 i = 0; i < length; i++) {
             nft_stakers[rewards.nftTokens[i]] = address(0);
             nft.safeTransferFrom(
                 address(this),

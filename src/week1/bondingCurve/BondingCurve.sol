@@ -60,6 +60,7 @@ contract BondingCurve is Ownable2Step, ReentrancyGuard {
             (bool success,) = _msgSender().call{value: remainingValue}("");
             if (!success) revert BondingCurve_TransferFailed();
         }
+        // Check if the burn has been successful => should return bool (check and revert here)
         token.mint(_msgSender(), noOfTokens);
         return remainingValue;
     }
@@ -77,6 +78,7 @@ contract BondingCurve is Ownable2Step, ReentrancyGuard {
         if (tokenValue < minValue) {
             revert BondingCurve_InsufficientTokenValue();
         }
+        // Check if the burn has been successful => should return bool (check and revert here)
         token.burn(_msgSender(), noOfTokens); // This saves one transferFrom operation | or would two separate transactions be better?
         (bool success,) = _msgSender().call{value: tokenValue}("");
         if (!success) revert BondingCurve_TransferFailed();
